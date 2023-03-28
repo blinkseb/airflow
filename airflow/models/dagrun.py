@@ -915,16 +915,28 @@ class DagRun(Base, LoggingMixin):
         """
         from airflow.settings import task_instance_mutation_hook
 
+        self.log.info(f"[TVTY DEBUG] verify_integrity {self.dag_id=} {self.run_id=}")
+
         # Set for the empty default in airflow.settings -- if it's not set this means it has been changed
         # Note: Literal[True, False] instead of bool because otherwise it doesn't correctly find the overload.
         hook_is_noop: Literal[True, False] = getattr(task_instance_mutation_hook, "is_noop", False)
+        self.log.info(f"[TVTY DEBUG] {hook_is_noop=}")
 
         dag = self.get_dag()
         task_ids = self._check_for_removed_or_restored_tasks(
             dag, task_instance_mutation_hook, session=session
         )
 
+        self.log.info(f"[TVTY DEBUG] {self.dag_id=} {self.run_id=} {dag.dag_id=}")
+        self.log.info(
+            f"[TVTY DEBUG] _check_for_removed_or_restored_tasks {self.dag_id=} {self.run_id=} {task_ids=}"
+        )
+
         def task_filter(task: Operator) -> bool:
+            self.log.info(
+                f"[TVTY DEBUG] task_filter {self.dag_id=} {self.run_id=} {task.start_date=} "
+                f"{self.execution_date=} {task.end_date=}"
+            )
             return task.task_id not in task_ids and (
                 self.is_backfill
                 or task.start_date <= self.execution_date
@@ -936,8 +948,14 @@ class DagRun(Base, LoggingMixin):
 
         # Create the missing tasks, including mapped tasks
         tasks_to_create = (task for task in dag.task_dict.values() if task_filter(task))
-        tis_to_create = self._create_tasks(tasks_to_create, task_creator, session=session)
-        self._create_task_instances(self.dag_id, tis_to_create, created_counts, hook_is_noop, session=session)
+        tasks_to_create_debug = list(tasks_to_create)
+        self.log.info(f"[TVTY DEBUG] {self.dag_id=} {self.run_id=} {tasks_to_create_debug=}")
+        tis_to_create = self._create_tasks(iter(tasks_to_create_debug), task_creator, session=session)
+        tis_to_create_debug = list(tis_to_create)
+        self.log.info(f"[TVTY DEBUG] {self.dag_id=} {self.run_id=} {tis_to_create_debug=}")
+        self._create_task_instances(
+            self.dag_id, iter(tis_to_create), created_counts, hook_is_noop, session=session
+        )
 
     def _check_for_removed_or_restored_tasks(
         self, dag: DAG, ti_mutation_hook, *, session: Session
@@ -1052,6 +1070,9 @@ class DagRun(Base, LoggingMixin):
         if hook_is_noop:
 
             def create_ti_mapping(task: Operator, indexes: Iterable[int]) -> Iterator[dict[str, Any]]:
+                self.log.info(
+                    f"[TVTY DEBUG] create_ti_mapping {self.dag_id=} {self.run_id=} {task=} {indexes=}"
+                )
                 created_counts[task.task_type] += 1
                 for map_index in indexes:
                     yield TI.insert_mapping(self.run_id, task, map_index=map_index)
@@ -1061,6 +1082,7 @@ class DagRun(Base, LoggingMixin):
         else:
 
             def create_ti(task: Operator, indexes: Iterable[int]) -> Iterator[TI]:
+                self.log.info(f"[TVTY DEBUG] create_ti {self.dag_id=} {self.run_id=} {task=} {indexes=}")
                 for map_index in indexes:
                     ti = TI(task, run_id=self.run_id, map_index=map_index)
                     ti_mutation_hook(ti)
@@ -1085,8 +1107,10 @@ class DagRun(Base, LoggingMixin):
         """
         map_indexes: Iterable[int]
         for task in tasks:
+            self.log.info(f"[TVTY DEBUG] _create_tasks {self.dag_id=} {self.run_id=} {task=}")
             try:
                 count = task.get_mapped_ti_count(self.run_id, session=session)
+                self.log.info(f"[TVTY DEBUG] get_mapped_ti_count {self.dag_id=} {self.run_id=} {count=}")
             except (NotMapped, NotFullyPopulated):
                 map_indexes = (-1,)
             else:
@@ -1130,6 +1154,9 @@ class DagRun(Base, LoggingMixin):
             for task_type, count in created_counts.items():
                 Stats.incr(f"task_instance_created-{task_type}", count)
             session.flush()
+            self.log.info(
+                f"[TVTY DEBUG] _create_task_instances session flushed {self.dag_id=} {self.run_id=}"
+            )
         except IntegrityError:
             self.log.info(
                 "Hit IntegrityError while creating the TIs for %s- %s",

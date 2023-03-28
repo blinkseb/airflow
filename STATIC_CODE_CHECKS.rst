@@ -187,8 +187,6 @@ require Breeze Docker image to be build locally.
 +-----------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-init-decorator-arguments                            | Check model __init__ and decorator arguments are in sync         |         |
 +-----------------------------------------------------------+------------------------------------------------------------------+---------+
-| check-lazy-logging                                        | Check that all logging methods are lazy                          |         |
-+-----------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-links-to-example-dags-do-not-use-hardcoded-versions | Check that example dags do not use hard-coded version numbers    |         |
 +-----------------------------------------------------------+------------------------------------------------------------------+---------+
 | check-merge-conflict                                      | Check that merge conflicts are not being committed               |         |

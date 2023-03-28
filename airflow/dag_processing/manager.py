@@ -218,7 +218,6 @@ class DagFileProcessorAgent(LoggingMixin, MultiprocessingStartMethodMixin):
         pickle_dags: bool,
         async_mode: bool,
     ) -> None:
-
         # Make this process start as a new process group - that makes it easy
         # to kill all sub-process of this at the OS-level, rather than having
         # to iterate the child processes
@@ -1084,7 +1083,6 @@ class DagFileProcessorManager(LoggingMixin):
         file_paths_recently_processed = []
         file_paths_to_stop_watching = set()
         for file_path in self._file_paths:
-
             if is_mtime_mode:
                 try:
                     files_with_mtime[file_path] = os.path.getmtime(file_path)
